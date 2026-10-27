@@ -24,7 +24,20 @@
                     <item name="lead" xsi:type="string" translate="true">What the page was priced with, and what Business Central was asked.</item>
                     <item name="graded" xsi:type="boolean">true</item>
                     <item name="view" xsi:type="object">Siteation\Commerce365DebugBar\Presentation\SectionView</item>
-                    <!-- The page scripts are storefront only: etc/frontend/di.xml -->
+                    <!--
+                        In the global di.xml on purpose: an area di.xml replaces the whole sections
+                        argument rather than merging into it. The bar adds these in every area, so the
+                        files are in view/base; on an admin page they simply find no price boxes.
+                    -->
+                    <item name="scripts" xsi:type="array">
+                        <!-- Before the theme's scripts, so the first price events are caught -->
+                        <item name="head" xsi:type="array">
+                            <item name="events" xsi:type="string">Siteation_Commerce365DebugBar::js/events.js</item>
+                        </item>
+                        <item name="body" xsi:type="array">
+                            <item name="reader" xsi:type="string">Siteation_Commerce365DebugBar::js/section.js</item>
+                        </item>
+                    </item>
                 </item>
             </argument>
         </arguments>

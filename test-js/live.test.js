@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { coverageTab, eventsTab, linkedTabs, newestPriceRequest, pageTab } from '../view/frontend/web/js/live.js'
+import { coverageTab, eventsTab, linkedTabs, newestPriceRequest, pageTab } from '../view/base/web/js/live.js'
 
 const priceProfile = {
   id: 'p2',
