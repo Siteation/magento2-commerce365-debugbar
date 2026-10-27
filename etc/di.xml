@@ -24,15 +24,7 @@
                     <item name="lead" xsi:type="string" translate="true">What the page was priced with, and what Business Central was asked.</item>
                     <item name="graded" xsi:type="boolean">true</item>
                     <item name="view" xsi:type="object">Siteation\Commerce365DebugBar\Presentation\SectionView</item>
-                    <item name="scripts" xsi:type="array">
-                        <!-- Before the theme's scripts, so the first price events are caught -->
-                        <item name="head" xsi:type="array">
-                            <item name="events" xsi:type="string">Siteation_Commerce365DebugBar::js/events.js</item>
-                        </item>
-                        <item name="body" xsi:type="array">
-                            <item name="reader" xsi:type="string">Siteation_Commerce365DebugBar::js/section.js</item>
-                        </item>
-                    </item>
+                    <!-- The page scripts are storefront only: etc/frontend/di.xml -->
                 </item>
             </argument>
         </arguments>
