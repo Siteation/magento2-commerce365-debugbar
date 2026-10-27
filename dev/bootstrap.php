@@ -18,5 +18,7 @@ $debugbar = getenv('C365_DEBUGBAR') ?: $home . '/Developer/magento2-debugbar';
 
 // phpcs:ignore Magento2.Security.IncludeFile -- the host's autoloader, at a path the developer names
 $composer = require $host . '/vendor/autoload.php';
-$composer->addPsr4('Siteation\\DebugBar\\', $debugbar . '/');
-$composer->addPsr4('Siteation\\Commerce365DebugBar\\', dirname(__DIR__) . '/');
+// Prepended: once a shop has the add-on and the debugbar installed, its vendor/ copies would
+// otherwise answer first, and the tests would run against those.
+$composer->addPsr4('Siteation\\DebugBar\\', $debugbar . '/', true);
+$composer->addPsr4('Siteation\\Commerce365DebugBar\\', dirname(__DIR__) . '/', true);

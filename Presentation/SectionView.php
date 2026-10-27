@@ -43,28 +43,34 @@ class SectionView implements SectionViewInterface
         $prices = is_array($payload['prices'] ?? null) ? $payload['prices'] : null;
 
         if ($prices === null) {
-            return ['id' => 'prices', 'label' => 'Prices', 'blocks' => [[
-                'type' => 'note',
-                'text' => 'This request priced nothing itself. Prices load after the page, '
-                    . 'in the customer-price request.',
-            ]]];
+            return ['id' => 'prices', 'label' => 'Prices', 'blocks' => $this->pageBlocks($payload, $summary)];
         }
 
         $bands = $this->bandsByProduct($payload);
+        $cached = (array) ($payload['cached'] ?? []);
         $rows = [];
 
         foreach ((array) ($prices['products'] ?? []) as $product) {
             $id = (int) ($product['product_id'] ?? 0);
             $dropped = $bands[$id]['dropped'] ?? [];
+            $cache = (array) ($cached[$id] ?? []);
+            $tierRows = (array) ($product['tier_rows'] ?? []);
 
             $rows[] = [
                 'product' => (string) $id,
                 'type' => (string) ($product['type'] ?? ''),
-                // A list item has no priceConfig, only the amount its price HTML printed
-                'final' => $this->number($product['final_price'] ?? $product['html_amount'] ?? null),
+                // A list item has no priceConfig, only the amount its price HTML printed. A
+                // from-price prints a price per unit and no amount, so then the cache row.
+                'final' => $this->number($this->first(
+                    $product['final_price'] ?? null,
+                    $product['html_amount'] ?? null,
+                    $cache['special_price'] ?? null,
+                    $cache['price'] ?? null
+                )),
                 'old' => $this->number($product['old_price'] ?? null),
-                'tiers' => (string) count((array) ($product['tier_rows'] ?? [])),
-                'bc_price' => $this->number($bands[$id]['price'] ?? null),
+                'tiers' => (string) count($tierRows !== [] ? $tierRows : (array) ($cache['tiers'] ?? [])),
+                // The cache row holds what BC answered when it was fetched
+                'bc_price' => $this->number($bands[$id]['price'] ?? $cache['price'] ?? null),
                 'bc' => isset($bands[$id]) ? 'fetched' : 'cache',
                 'dropped' => $dropped === []
                     ? ''
@@ -186,14 +192,20 @@ class SectionView implements SectionViewInterface
         ];
 
         if ($rows !== []) {
-            $blocks[] = ['type' => 'json', 'value' => array_map(
-                static fn (array $call): array => [
+            $bodies = (array) ($payload['bodies'] ?? []);
+            $values = [];
+
+            // Bodies sit beside the calls, by index. An older profile kept them inside.
+            foreach (array_values((array) $payload['items']) as $index => $call) {
+                $values[] = [
                     'endpoint' => $call['endpoint'] ?? null,
-                    'request' => $call['request'] ?? null,
-                    'response' => $call['response'] ?? null,
-                ],
-                (array) $payload['items']
-            )];
+                    'origin' => $call['origin'] ?? null,
+                    'request' => $bodies[$index]['request'] ?? $call['request'] ?? null,
+                    'response' => $bodies[$index]['response'] ?? $call['response'] ?? null,
+                ];
+            }
+
+            $blocks[] = ['type' => 'json', 'value' => $values];
         }
 
         return [
@@ -266,6 +278,65 @@ class SectionView implements SectionViewInterface
         }
 
         return $out;
+    }
+
+    /**
+     * The Prices tab of a request that priced nothing itself, usually the page. It may still
+     * have done the work: Commerce365's warm-up fetches the list's prices while it renders.
+     *
+     * @param array<string, mixed> $payload
+     * @param array<string, mixed> $summary
+     * @return list<array<string, mixed>>
+     */
+    private function pageBlocks(array $payload, array $summary): array
+    {
+        $calls = (int) ($summary['count'] ?? 0);
+        $listed = (int) ($summary['preload_requested'] ?? 0);
+        $warmed = (int) ($summary['preload_missed'] ?? 0);
+
+        if ($calls === 0 && $listed === 0) {
+            return [[
+                'type' => 'note',
+                'text' => 'This request neither priced products nor called Commerce365. Prices load after the '
+                    . 'page, in the customer-price request.',
+            ]];
+        }
+
+        $blocks = [
+            ['type' => 'facts', 'items' => [
+                ['label' => 'Calls', 'value' => (string) $calls],
+                ['label' => 'Warm-up calls', 'value' => (string) (int) ($summary['preload_call_count'] ?? 0)],
+                ['label' => 'Listed', 'value' => (string) $listed],
+                ['label' => 'Fetched from BC', 'value' => (string) $warmed],
+                ['label' => 'Already cached', 'value' => (string) max(0, $listed - $warmed)],
+            ]],
+            [
+                'type' => 'note',
+                'text' => $listed > 0
+                    ? sprintf(
+                        'Commerce365 warmed the price cache while the list rendered: %d of %d products came from '
+                            . 'BC, so the customer-price request after the page can answer from the cache. The '
+                            . 'price boxes are filled by that request.',
+                        $warmed,
+                        $listed
+                    )
+                    : 'This page called Commerce365 itself, but priced no products. The price boxes are filled by '
+                        . 'the customer-price request after the page.',
+            ],
+        ];
+
+        return (array) ($payload['raw'] ?? []) !== [] ? [...$blocks, ...$this->rawBlocks($payload)] : $blocks;
+    }
+
+    private function first(mixed ...$values): mixed
+    {
+        foreach ($values as $value) {
+            if (is_int($value) || is_float($value)) {
+                return $value;
+            }
+        }
+
+        return null;
     }
 
     private function number(mixed $value): string

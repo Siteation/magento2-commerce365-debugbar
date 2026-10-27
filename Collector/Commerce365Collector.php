@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Siteation\Commerce365DebugBar\Collector;
 
+use Commerce365\CustomerPrice\Model\CachedPrice;
 use Magento\Framework\App\Http\Context as HttpContext;
 use Magento\Framework\App\ResponseInterface;
 use Siteation\Commerce365DebugBar\Model\BandDiff;
@@ -28,6 +29,9 @@ class Commerce365Collector extends AbstractCollector
 {
     public const SECTION = 'c365';
 
+    /** Commerce365's own warm-up of the price cache while a product list renders */
+    public const ORIGIN_PRELOAD = 'preload';
+
     /** @var array{status: int|null, bytes: int|null}|null */
     private ?array $response = null;
 
@@ -36,6 +40,18 @@ class Commerce365Collector extends AbstractCollector
 
     /** @var array{requested: list<int>, missed: list<int>, lookups: int} */
     private array $cache = ['requested' => [], 'missed' => [], 'lookups' => 0];
+
+    /** @var array{requested: list<int>, missed: list<int>, calls: int} */
+    private array $preload = ['requested' => [], 'missed' => [], 'calls' => 0];
+
+    /** What Commerce365 is doing when a call or a lookup comes in, null outside a known caller */
+    private ?string $origin = null;
+
+    /** @var array<int, array<string, mixed>> the price cache rows the request was priced from, by product */
+    private array $cached = [];
+
+    /** @var list<array{request: mixed, response: mixed}> the bodies of the calls, beside the items */
+    private array $bodies = [];
 
     /** @var list<array<string, mixed>> */
     private array $raw = [];
@@ -58,6 +74,7 @@ class Commerce365Collector extends AbstractCollector
         private readonly PriceDecoder $decoder,
         private readonly BandDiff $bandDiff,
         private readonly HttpContext $httpContext,
+        private readonly Redactor $bodyRedactor,
         private readonly float $slowCallMs = 1000.0,
         int $maxItems = 200
     ) {
@@ -75,6 +92,10 @@ class Commerce365Collector extends AbstractCollector
         $this->response = null;
         $this->prices = null;
         $this->cache = ['requested' => [], 'missed' => [], 'lookups' => 0];
+        $this->preload = ['requested' => [], 'missed' => [], 'calls' => 0];
+        $this->origin = null;
+        $this->cached = [];
+        $this->bodies = [];
         $this->raw = [];
         $this->context = [];
         $this->loggedIn = null;
@@ -127,6 +148,22 @@ class Commerce365Collector extends AbstractCollector
         $ok = $error === null && $status !== null && $status >= 200 && $status < 300;
         $policy = $this->config->valuePolicy();
 
+        if ($this->origin === self::ORIGIN_PRELOAD) {
+            $this->preload['calls']++;
+        }
+
+        // The bodies sit beside the items, under the item's index, not in them: record()
+        // bounds an item at five levels, and a price band is six deep in a Hub answer, so
+        // every value in it read "[maximum depth reached]". The body redactor goes deeper.
+        $index = count($this->items);
+
+        if ($index < $this->maxItems) {
+            $this->bodies[$index] = [
+                'request' => $this->bodyRedactor->cleanValues($this->withoutCredentials($request), $policy),
+                'response' => is_array($result) ? $this->bodyRedactor->cleanValues($result, $policy) : $result,
+            ];
+        }
+
         $this->record([
             'name' => sprintf('%s %s %s', $this->transportLabel($transport), $httpMethod, $endpoint),
             'transport' => $transport,
@@ -140,9 +177,30 @@ class Commerce365Collector extends AbstractCollector
             'at_ms' => round($startMs + $durationMs, 3),
             'duration_ms' => round($durationMs, 3),
             'slow' => $durationMs >= $this->slowCallMs,
-            'request' => $this->redactor->cleanValues($this->withoutCredentials($request), $policy),
-            'response' => is_array($result) ? $this->redactor->cleanValues($result, $policy) : $result,
+            'origin' => $this->origin,
         ]);
+    }
+
+    /**
+     * Runs what Commerce365 does for one known caller, so its calls and lookups are told
+     * apart from the rest. ProductListPricesPreloadToCache fills the price cache while a
+     * product list renders, on purpose: its misses are what spare the customer-price
+     * request a BC call.
+     *
+     * @template T
+     * @param callable(): T $work
+     * @return T
+     */
+    public function during(string $origin, callable $work): mixed
+    {
+        $previous = $this->origin;
+        $this->origin = $origin;
+
+        try {
+            return $work();
+        } finally {
+            $this->origin = $previous;
+        }
     }
 
     /**
@@ -150,6 +208,12 @@ class Commerce365Collector extends AbstractCollector
      */
     public function recordCacheLookup(array $productIds): void
     {
+        if ($this->origin === self::ORIGIN_PRELOAD) {
+            $this->preload['requested'] = $this->ids([...$this->preload['requested'], ...$productIds]);
+
+            return;
+        }
+
         $this->cache['lookups']++;
         $this->cache['requested'] = $this->ids([...$this->cache['requested'], ...$productIds]);
     }
@@ -159,7 +223,44 @@ class Commerce365Collector extends AbstractCollector
      */
     public function recordCacheMiss(array $productIds): void
     {
+        if ($this->origin === self::ORIGIN_PRELOAD) {
+            $this->preload['missed'] = $this->ids([...$this->preload['missed'], ...$productIds]);
+
+            return;
+        }
+
         $this->cache['missed'] = $this->ids([...$this->cache['missed'], ...$productIds]);
+    }
+
+    /**
+     * The price cache rows a lookup answered with, cached or just fetched. The only amount a
+     * list item with a from-price has: its HTML prints a price per unit, and no amount.
+     *
+     * @param iterable<mixed> $collection what GetPriceCollectionForProducts returned
+     */
+    public function recordCachedPrices(iterable $collection): void
+    {
+        $full = $this->config->valuePolicy() === Redactor::POLICY_FULL;
+
+        foreach ($collection as $item) {
+            if (!$item instanceof CachedPrice) {
+                continue;
+            }
+
+            $tiers = array_map(static fn (mixed $tier): array => [
+                'qty' => is_array($tier) ? ($tier['qty'] ?? null) : null,
+                'price' => is_array($tier) ? ($tier['price'] ?? null) : null,
+            ], array_values((array) $item->getTierPrices()));
+
+            $row = ['price' => $item->getPrice(), 'special_price' => $item->getSpecialPrice(), 'tiers' => $tiers];
+
+            // Numbers only, and under another policy only their type, like the raw bands
+            $this->cached[(int) $item->getProductId()] = $full ? $row : [
+                'price' => get_debug_type($row['price']),
+                'special_price' => get_debug_type($row['special_price']),
+                'tiers' => array_map(static fn (array $tier): array => array_map('get_debug_type', $tier), $tiers),
+            ];
+        }
     }
 
     /**
@@ -251,6 +352,11 @@ class Commerce365Collector extends AbstractCollector
             'cache_requested' => $requested,
             'cache_missed' => $missed,
             'cache_miss_rate' => $requested > 0 ? round($missed / $requested * 100, 1) : null,
+            // Whose lookups those are: the customer-price request's, or a page's own
+            'cache_scope' => $this->prices !== null ? 'price_request' : 'page',
+            'preload_call_count' => $this->preload['calls'],
+            'preload_requested' => count($this->preload['requested']),
+            'preload_missed' => count($this->preload['missed']),
             'dropped_fields' => $this->droppedFields(),
         ];
     }
@@ -260,7 +366,10 @@ class Commerce365Collector extends AbstractCollector
         return [
             'items' => $this->items,
             'prices' => $this->prices,
+            'bodies' => $this->bodies,
             'cache' => $this->cache,
+            'preload' => $this->preload,
+            'cached' => $this->cached,
             'raw' => $this->raw,
             'context' => $this->context,
             'logged_in' => $this->loggedIn,

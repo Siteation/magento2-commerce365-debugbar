@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Siteation\Commerce365DebugBar\Test\Unit\Collector;
 
+use Commerce365\CustomerPrice\Model\CachedPrice;
 use Magento\Framework\App\Http\Context as HttpContext;
 use Magento\Framework\App\ResponseInterface;
 use PHPUnit\Framework\Attributes\Test;
@@ -68,9 +69,10 @@ class Commerce365CollectorTest extends TestCase
             'customerId' => 3,
         ], []);
 
-        $request = $collector->payload()['items'][0]['request'];
+        $payload = $collector->payload();
 
-        $this->assertSame(['customerId' => 3], $request);
+        $this->assertSame(['customerId' => 3], $payload['bodies'][0]['request']);
+        $this->assertArrayNotHasKey('request', $payload['items'][0]);
     }
 
     #[Test]
@@ -96,6 +98,57 @@ class Commerce365CollectorTest extends TestCase
         $this->assertSame(4, $summary['cache_requested']);
         $this->assertSame(1, $summary['cache_missed']);
         $this->assertSame(25.0, $summary['cache_miss_rate']);
+    }
+
+    #[Test]
+    public function aBandSixLevelsIntoAHubAnswerKeepsItsValues(): void
+    {
+        $collector = $this->collector();
+        $collector->recordCall('hub', 'POST', 'price', 0.0, 1.0, [], [
+            'priceLists' => [['productId' => 263, 'prices' => [['price' => 63.41391, 'minimumQuantity' => 1]]]],
+        ]);
+
+        $response = $collector->payload()['bodies'][0]['response'];
+
+        $this->assertSame(63.41391, $response['priceLists'][0]['prices'][0]['price']);
+    }
+
+    #[Test]
+    public function theWarmUpKeepsItsCallsAndLookupsApart(): void
+    {
+        $collector = $this->collector();
+        $collector->during(Commerce365Collector::ORIGIN_PRELOAD, function () use ($collector): void {
+            $collector->recordCacheLookup(range(1, 12));
+            $collector->recordCacheMiss(range(1, 11));
+            $collector->recordCall('hub', 'POST', 'price', 0.0, 115.0, [], []);
+        });
+        $collector->recordCacheLookup([20]);
+
+        $summary = $collector->summary();
+
+        $this->assertSame('preload', $collector->payload()['items'][0]['origin']);
+        $this->assertSame(1, $summary['preload_call_count']);
+        $this->assertSame(12, $summary['preload_requested']);
+        $this->assertSame(11, $summary['preload_missed']);
+        // The rate is the lookups outside the warm-up, here the one on the page itself
+        $this->assertSame(1, $summary['cache_requested']);
+        $this->assertSame(0.0, $summary['cache_miss_rate']);
+        $this->assertSame('page', $summary['cache_scope']);
+    }
+
+    #[Test]
+    public function theCachedPriceRowsAreKeptPerProduct(): void
+    {
+        $collector = $this->collector();
+        $collector->recordCachedPrices([
+            new CachedPrice(63.41391, 263, 63.41391, [['qty' => 55, 'price' => 52.22043, 'additional' => []]]),
+            'not a row',
+        ]);
+
+        $this->assertSame(
+            [263 => ['price' => 63.41391, 'special_price' => 63.41391, 'tiers' => [['qty' => 55, 'price' => 52.22043]]]],
+            $collector->payload()['cached']
+        );
     }
 
     #[Test]
@@ -185,6 +238,7 @@ class Commerce365CollectorTest extends TestCase
             new PriceDecoder(),
             new BandDiff(),
             $httpContext ?? $this->createStub(HttpContext::class),
+            new Redactor(maxDepth: 10),
             $slowCallMs
         );
     }

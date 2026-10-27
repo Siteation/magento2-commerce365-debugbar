@@ -16,7 +16,8 @@ use Siteation\DebugBar\Model\ProfileManager;
  * GetPriceCollectionForProducts is asked for every product, SyncPrices only for the ones
  * the cache did not have, so the two together are the hit rate. GetCustomerPrices returns
  * the priceLists before Commerce365 maps them, which is the only place the fields the
- * storefront drops are still there. This replaces the plugin of Siteation_Commerce365Debug.
+ * storefront drops are still there. The collection GetPriceCollectionForProducts returns is the
+ * price each product was given, cached or fetched. This replaces the plugin of Siteation_Commerce365Debug.
  */
 class PriceCachePlugin
 {
@@ -53,7 +54,16 @@ class PriceCachePlugin
         mixed $productIds = [],
         mixed $customerId = null
     ): mixed {
-        if ($subject instanceof GetCustomerPrices && $this->manager->isCollecting()) {
+        $collecting = $this->manager->isCollecting();
+
+        if ($subject instanceof GetPriceCollectionForProducts && is_iterable($result) && $collecting) {
+            $this->manager->quietly(
+                Commerce365Collector::SECTION,
+                fn () => $this->collector->recordCachedPrices($result)
+            );
+        }
+
+        if ($subject instanceof GetCustomerPrices && $collecting) {
             $this->manager->quietly(Commerce365Collector::SECTION, fn () => $this->collector->recordRawPrices(
                 is_array($productIds) ? array_values($productIds) : [],
                 $result

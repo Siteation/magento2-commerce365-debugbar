@@ -16,6 +16,21 @@
         </arguments>
     </type>
 
+    <!--
+        Call bodies get their own depth: a price band is six levels into a Hub answer, one past
+        what the debugbar keeps of an item. Same value policy, same string and array bounds.
+    -->
+    <virtualType name="Siteation\Commerce365DebugBar\Model\BodyRedactor" type="Siteation\DebugBar\Model\Redactor">
+        <arguments>
+            <argument name="maxDepth" xsi:type="number">10</argument>
+        </arguments>
+    </virtualType>
+    <type name="Siteation\Commerce365DebugBar\Collector\Commerce365Collector">
+        <arguments>
+            <argument name="bodyRedactor" xsi:type="object">Siteation\Commerce365DebugBar\Model\BodyRedactor</argument>
+        </arguments>
+    </type>
+
     <type name="Siteation\DebugBar\Model\ContributedSections">
         <arguments>
             <argument name="sections" xsi:type="array">
@@ -90,6 +105,11 @@
     <!-- The customer-price request and its answer -->
     <type name="Commerce365\CustomerPrice\Api\CustomerPriceInterface">
         <plugin name="siteation_c365debugbar_price" type="Siteation\Commerce365DebugBar\Plugin\PricePlugin" sortOrder="1"/>
+    </type>
+
+    <!-- Commerce365's price cache warm-up during a product list render -->
+    <type name="Commerce365\CustomerPrice\Plugin\Frontend\ProductListPricesPreloadToCache">
+        <plugin name="siteation_c365debugbar_preload" type="Siteation\Commerce365DebugBar\Plugin\PreloadPlugin" sortOrder="1"/>
     </type>
 
     <!-- Price cache hits and misses, and the raw bands on a miss -->

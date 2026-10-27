@@ -64,6 +64,12 @@ export function linkedTabs(priceProfile, entry) {
   return tabs.map((tab) => ({ ...tab, blocks: [lead, ...(tab.blocks || [])] }))
 }
 
+function tierCount(product, cacheRow) {
+  const own = product.tier_rows || []
+
+  return own.length ? own.length : ((cacheRow && cacheRow.tiers) || []).length
+}
+
 /**
  * Products offered for pricing against the boxes that show a price.
  *
@@ -72,7 +78,10 @@ export function linkedTabs(priceProfile, entry) {
  * @returns {object} a tab
  */
 export function coverageTab(boxes, priceProfile) {
-  const prices = isPriceProfile(priceProfile) ? priceProfile.sections.c365.payload.prices : null
+  const payload = isPriceProfile(priceProfile) ? priceProfile.sections.c365.payload : null
+  const prices = payload ? payload.prices : null
+  // A list item has no tier rows of its own; the price cache row it was priced from does
+  const cached = (payload && payload.cached) || {}
   const answered = new Map((prices ? prices.products : []).map((product) => [String(product.product_id), product]))
   const requested = new Set((prices ? prices.requested : []).map(String))
   const byProduct = new Map()
@@ -97,7 +106,7 @@ export function coverageTab(boxes, priceProfile) {
       requested: requested.has(id) ? 'yes' : 'no',
       answered: product ? 'yes' : (requested.has(id) ? { text: 'no', tone: 'bad' } : ''),
       shown: shown ? 'yes' : { text: 'no', tone: states.length ? 'warn' : '' },
-      tiers: product ? String((product.tier_rows || []).length) : '',
+      tiers: product ? String(tierCount(product, cached[id])) : '',
       uom: product && product.has_uom_in_html ? 'yes' : '',
       _tone: gap ? 'warn' : '',
       _target: id,

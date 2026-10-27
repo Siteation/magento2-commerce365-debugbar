@@ -22,6 +22,43 @@ class SectionViewTest extends TestCase
     }
 
     #[Test]
+    public function aPageThatWarmedThePriceCacheSaysSo(): void
+    {
+        $view = (new SectionView())->view(['sections' => ['c365' => [
+            'summary' => ['count' => 1, 'preload_call_count' => 1, 'preload_requested' => 12, 'preload_missed' => 11],
+            'payload' => ['items' => [], 'prices' => null, 'raw' => []],
+        ]]]);
+
+        $blocks = $view['tabs'][0]['blocks'];
+
+        $this->assertSame('facts', $blocks[0]['type']);
+        $this->assertStringContainsString('11 of 12 products came from BC', $blocks[1]['text']);
+        $this->assertStringNotContainsString('priced nothing', $blocks[1]['text']);
+    }
+
+    #[Test]
+    public function aFromPriceListItemTakesItsAmountAndTiersFromTheCache(): void
+    {
+        $view = (new SectionView())->view(['sections' => ['c365' => [
+            'summary' => ['priced_count' => 1],
+            'payload' => [
+                'items' => [['endpoint' => 'price', 'ok' => true, 'response' => 'old']],
+                'bodies' => [['request' => [], 'response' => ['priceLists' => []]]],
+                'prices' => ['products' => [['product_id' => 263, 'final_price' => null, 'html_amount' => null, 'tier_rows' => []]]],
+                'cached' => [263 => ['price' => 63.41391, 'special_price' => 63.41391, 'tiers' => [['qty' => 55, 'price' => 52.2]]]],
+            ],
+        ]]]);
+
+        $row = $view['tabs'][0]['blocks'][1]['rows'][0];
+
+        $this->assertSame('63.41391', $row['final']);
+        $this->assertSame('1', $row['tiers']);
+        $this->assertSame('63.41391', $row['bc_price']);
+        // The call bodies come from beside the items
+        $this->assertSame(['priceLists' => []], $view['tabs'][1]['blocks'][1]['value'][0]['response']);
+    }
+
+    #[Test]
     public function aPriceRequestProfileListsEveryProductWithItsDroppedFields(): void
     {
         $view = (new SectionView())->view(['sections' => ['c365' => [

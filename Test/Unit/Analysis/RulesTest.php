@@ -50,6 +50,49 @@ class RulesTest extends TestCase
     }
 
     #[Test]
+    public function theWarmUpOnAStoredPageIsInfo(): void
+    {
+        $profile = $this->profile('frontend', [['endpoint' => 'price', 'ok' => true, 'origin' => 'preload']], [
+            'preload_requested' => 12, 'preload_missed' => 11,
+        ]);
+        $profile['sections']['pagecache'] = ['summary' => ['status' => 'stored']];
+
+        $finding = $this->only(new CallInPageRenderRule(), $profile);
+
+        $this->assertSame('c365.price_cache_warmup', $finding['id']);
+        $this->assertSame('info', $finding['severity']);
+        $this->assertStringContainsString('Cache warm-up: Commerce365 fetched 11 products', $finding['message']);
+    }
+
+    #[Test]
+    public function theWarmUpOnAPageThatWasNotStoredIsAnError(): void
+    {
+        $profile = $this->profile('frontend', [['endpoint' => 'price', 'origin' => 'preload']], ['preload_missed' => 3]);
+        $profile['sections']['pagecache'] = ['summary' => ['status' => 'not_cached']];
+
+        $finding = $this->only(new CallInPageRenderRule(), $profile);
+
+        $this->assertSame('c365.call_in_page_render', $finding['id']);
+        $this->assertSame('error', $finding['severity']);
+        $this->assertSame('pagecache', $finding['action']['section']);
+    }
+
+    #[Test]
+    public function aCallBesideTheWarmUpIsStillAnError(): void
+    {
+        $findings = (new CallInPageRenderRule())->apply($this->profile('frontend', [
+            ['endpoint' => 'price', 'origin' => 'preload'],
+            ['endpoint' => 'customer', 'origin' => null],
+        ]));
+
+        $this->assertSame(
+            ['error', 'info'],
+            array_map(static fn ($finding): string => $finding->toArray()['severity'], $findings)
+        );
+        $this->assertStringContainsString(': customer.', $findings[0]->toArray()['message']);
+    }
+
+    #[Test]
     public function theSlowestCallIsNamed(): void
     {
         $finding = $this->only(new SlowCallRule(), $this->profile('webapi_rest', [
@@ -72,8 +115,8 @@ class RulesTest extends TestCase
         $this->assertSame([], $rule->apply($this->profile('webapi_rest', [], [
             'cache_requested' => 40, 'cache_missed' => 4, 'cache_miss_rate' => 10.0,
         ])));
-        $this->assertStringContainsString('30 of 40', $this->only($rule, $this->profile('webapi_rest', [], [
-            'cache_requested' => 40, 'cache_missed' => 30, 'cache_miss_rate' => 75.0,
+        $this->assertStringContainsString('30 of 40 products missed the price cache in this customer-price request', $this->only($rule, $this->profile('webapi_rest', [], [
+            'cache_requested' => 40, 'cache_missed' => 30, 'cache_miss_rate' => 75.0, 'cache_scope' => 'price_request',
         ]))['message']);
     }
 

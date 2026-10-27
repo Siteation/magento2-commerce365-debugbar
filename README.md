@@ -56,11 +56,12 @@ with `data-commerce365-price`, the `commerce365` key of `#nft-globals`, and the 
 | Severity | Id | When |
 | --- | --- | --- |
 | error | `c365.call_failed` | A Hub or BC call got no 2xx answer, which Commerce365 otherwise hides |
-| error | `c365.call_in_page_render` | Commerce365 called out while a storefront page rendered |
+| error | `c365.call_in_page_render` | Commerce365 called out while a storefront page rendered, outside its own price cache warm-up; or the warm-up ran on a page that was not stored |
 | warning | `c365.call_slow` | A call over the threshold (1000 ms, `slowCallMs` on the collector) |
-| warning | `c365.cache_miss_rate` | 50% or more of 10 or more products missed the price cache |
+| warning | `c365.cache_miss_rate` | 50% or more of 10 or more products missed the price cache, warm-up lookups left out; the message names the request |
 | info | `c365.guest_on_priced_page` | Logged out on a category, product or search page |
 | info | `c365.dropped_fields` | BC sent band fields the storefront never reads |
+| info | `c365.price_cache_warmup` | `ProductListPricesPreloadToCache` fetched the list's prices from BC while it rendered, on a page that was stored |
 
 Thresholds are constructor arguments, so a project changes them in its own di.xml.
 

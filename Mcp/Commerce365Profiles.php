@@ -38,13 +38,23 @@ class Commerce365Profiles
         }
 
         $section = $this->section($profile);
-        $calls = array_map(static function (array $call) use ($bodies): array {
-            if (!$bodies) {
-                unset($call['request'], $call['response']);
+        $stored = (array) ($section['payload']['bodies'] ?? []);
+        $calls = [];
+
+        // The bodies sit beside the calls, by index; an older profile kept them inside
+        $items = array_values(array_filter((array) ($section['payload']['items'] ?? []), 'is_array'));
+
+        foreach ($items as $i => $call) {
+            $inline = $call;
+            unset($call['request'], $call['response']);
+
+            if ($bodies) {
+                $call['request'] = $stored[$i]['request'] ?? $inline['request'] ?? null;
+                $call['response'] = $stored[$i]['response'] ?? $inline['response'] ?? null;
             }
 
-            return $call;
-        }, array_values(array_filter((array) ($section['payload']['items'] ?? []), 'is_array')));
+            $calls[] = $call;
+        }
 
         $summary = (array) ($section['summary'] ?? []);
 
@@ -93,6 +103,7 @@ class Commerce365Profiles
                 'bc_base_price' => isset($raw[$id]) ? BandDiff::basePrice($raw[$id]['prices']) : null,
                 'bc_bands' => $raw[$id]['prices'] ?? null,
                 'dropped_fields' => $raw[$id]['dropped'] ?? [],
+                'cached' => $payload['cached'][$id] ?? null,
             ];
         }
 
@@ -105,14 +116,19 @@ class Commerce365Profiles
             'page_product_id' => $prices['page_product_id'] ?? null,
             'requested' => $prices['requested'] ?? [],
             'cache' => [
+                'scope' => $summary['cache_scope'] ?? null,
                 'requested' => $summary['cache_requested'] ?? 0,
                 'missed' => $summary['cache_missed'] ?? 0,
                 'miss_rate' => $summary['cache_miss_rate'] ?? null,
+                'preload_requested' => $summary['preload_requested'] ?? 0,
+                'preload_missed' => $summary['preload_missed'] ?? 0,
             ],
             'context' => $payload['context'] ?? [],
             'products' => $products,
             'note' => 'final_price comes from priceConfig, html_amount from the price HTML (list items have only '
-                . 'that). bc_base_price is the band for a quantity of one, before use_special_price applies.',
+                . 'that). bc_base_price is the band for a quantity of one, before use_special_price applies. '
+                . 'cached is the price cache row the product was '
+                . 'priced from: a list item with a from-price has no other amount.',
             'findings' => $this->findings($profile),
         ]);
     }
