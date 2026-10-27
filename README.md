@@ -4,7 +4,7 @@ Adds a **Commerce365** section to [Siteation_DebugBar](https://github.com/Siteat
 the customer prices a request answered, every Hub and Business Central call, the price cache, and the
 raw BC price bands with the fields the storefront drops.
 
-Needs a debugbar that has the section API (magento2-debugbar #49, `dev-main` until 1.4.0 is tagged).
+Needs Siteation_DebugBar 1.4.0 or newer, the first release with the section API.
 Hyvä first. Luma is untested.
 
 ## Install
