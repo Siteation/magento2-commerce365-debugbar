@@ -1,0 +1,35 @@
+{
+    "name": "siteation/magento2-commerce365-debugbar",
+    "license": "proprietary",
+    "type": "magento2-module",
+    "description": "Commerce365 section for Siteation_DebugBar: customer prices, Hub and Business Central calls, and findings",
+    "keywords": [
+        "magento2",
+        "magento2-module",
+        "debugbar",
+        "commerce365",
+        "business-central"
+    ],
+    "authors": [
+        {
+            "name": "Siteation",
+            "email": "info@siteation.dev",
+            "homepage": "https://siteation.dev/"
+        }
+    ],
+    "require": {
+        "php": "~8.2.0 || ~8.3.0 || ~8.4.0 || ~8.5.0",
+        "magento/framework": "^103.0",
+        "siteation/magento2-debugbar": "^1.4 || dev-main",
+        "commerce365/module-core": "^2.0",
+        "commerce365/module-customer-price": "^2.0"
+    },
+    "autoload": {
+        "files": [
+            "registration.php"
+        ],
+        "psr-4": {
+            "Siteation\\Commerce365DebugBar\\": ""
+        }
+    }
+}

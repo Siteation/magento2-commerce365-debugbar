@@ -1,0 +1,69 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+
+    <!--
+        Global, not frontend: the prices arrive in a webapi_rest request (/V1/customer-price),
+        and a BC call during a page render is exactly what a finding should catch.
+    -->
+
+    <!-- The collector, under the same id as the section, so the Sections switch stops both -->
+    <type name="Siteation\DebugBar\Model\ProfileManager">
+        <arguments>
+            <argument name="collectors" xsi:type="array">
+                <item name="c365" xsi:type="object">Siteation\Commerce365DebugBar\Collector\Commerce365Collector</item>
+            </argument>
+        </arguments>
+    </type>
+
+    <type name="Siteation\DebugBar\Model\ContributedSections">
+        <arguments>
+            <argument name="sections" xsi:type="array">
+                <item name="c365" xsi:type="array">
+                    <item name="label" xsi:type="string" translate="true">Commerce365</item>
+                    <item name="lead" xsi:type="string" translate="true">What the page was priced with, and what Business Central was asked.</item>
+                    <item name="graded" xsi:type="boolean">true</item>
+                    <item name="view" xsi:type="object">Siteation\Commerce365DebugBar\Presentation\SectionView</item>
+                </item>
+            </argument>
+        </arguments>
+    </type>
+
+    <!-- Hub and BC calls: one span each -->
+    <type name="Commerce365\Core\Service\Request\Post">
+        <plugin name="siteation_c365debugbar_request" type="Siteation\Commerce365DebugBar\Plugin\RequestPlugin" sortOrder="1"/>
+    </type>
+    <type name="Commerce365\Core\Service\Request\Get">
+        <plugin name="siteation_c365debugbar_request" type="Siteation\Commerce365DebugBar\Plugin\RequestPlugin" sortOrder="1"/>
+    </type>
+    <type name="Commerce365\Core\Service\Request\BusinessCentral\BasicPost">
+        <plugin name="siteation_c365debugbar_request" type="Siteation\Commerce365DebugBar\Plugin\RequestPlugin" sortOrder="1"/>
+    </type>
+    <type name="Commerce365\Core\Service\Request\BusinessCentral\OAuthPost">
+        <plugin name="siteation_c365debugbar_request" type="Siteation\Commerce365DebugBar\Plugin\RequestPlugin" sortOrder="1"/>
+    </type>
+
+    <!-- The status code, before Commerce365 drops it -->
+    <type name="Commerce365\Core\Service\Response\ProcessResponse">
+        <plugin name="siteation_c365debugbar_response" type="Siteation\Commerce365DebugBar\Plugin\ResponsePlugin" sortOrder="1"/>
+    </type>
+    <type name="Commerce365\Core\Service\Response\BusinessCentral\ProcessResponse">
+        <plugin name="siteation_c365debugbar_response" type="Siteation\Commerce365DebugBar\Plugin\ResponsePlugin" sortOrder="1"/>
+    </type>
+
+    <!-- The customer-price request and its answer -->
+    <type name="Commerce365\CustomerPrice\Api\CustomerPriceInterface">
+        <plugin name="siteation_c365debugbar_price" type="Siteation\Commerce365DebugBar\Plugin\PricePlugin" sortOrder="1"/>
+    </type>
+
+    <!-- Price cache hits and misses, and the raw bands on a miss -->
+    <type name="Commerce365\CustomerPrice\Service\GetPriceCollectionForProducts">
+        <plugin name="siteation_c365debugbar_price_cache" type="Siteation\Commerce365DebugBar\Plugin\PriceCachePlugin" sortOrder="1"/>
+    </type>
+    <type name="Commerce365\CustomerPrice\Service\SyncPrices">
+        <plugin name="siteation_c365debugbar_price_cache" type="Siteation\Commerce365DebugBar\Plugin\PriceCachePlugin" sortOrder="1"/>
+    </type>
+    <type name="Commerce365\CustomerPrice\Service\Request\GetCustomerPrices">
+        <plugin name="siteation_c365debugbar_price_cache" type="Siteation\Commerce365DebugBar\Plugin\PriceCachePlugin" sortOrder="1"/>
+    </type>
+</config>

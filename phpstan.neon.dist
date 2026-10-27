@@ -1,0 +1,10 @@
+parameters:
+	level: 8
+	paths:
+		- .
+	excludePaths:
+		analyseAndScan:
+			- dev
+			- view
+			- Test
+	treatPhpDocTypesAsCertain: false
