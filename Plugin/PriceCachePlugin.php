@@ -52,8 +52,7 @@ class PriceCachePlugin
         mixed $result,
         mixed $productIds = [],
         mixed $customerId = null
-    ): mixed
-    {
+    ): mixed {
         if ($subject instanceof GetCustomerPrices && $this->manager->isCollecting()) {
             $this->manager->quietly(Commerce365Collector::SECTION, fn () => $this->collector->recordRawPrices(
                 is_array($productIds) ? array_values($productIds) : [],

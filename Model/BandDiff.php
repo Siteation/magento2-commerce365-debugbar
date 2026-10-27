@@ -58,4 +58,32 @@ class BandDiff
 
         return $out;
     }
+
+    /**
+     * The unit price BC sent, as PriceDataBuilder picks it: the band for a quantity of one,
+     * or else the first tier. Null when the bands hold no number, which is also what they
+     * hold under a value policy other than full.
+     *
+     * @param array<array-key, mixed> $bands
+     */
+    public static function basePrice(array $bands): float|int|null
+    {
+        $first = null;
+
+        foreach ($bands as $band) {
+            $price = is_array($band) ? ($band['price'] ?? null) : null;
+
+            if (!is_int($price) && !is_float($price)) {
+                continue;
+            }
+
+            if ((float) ($band['minimumQuantity'] ?? 0) <= 1) {
+                return $price;
+            }
+
+            $first ??= $price;
+        }
+
+        return $first;
+    }
 }

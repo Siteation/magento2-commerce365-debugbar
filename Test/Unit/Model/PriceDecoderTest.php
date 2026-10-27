@@ -50,6 +50,16 @@ class PriceDecoderTest extends TestCase
     }
 
     #[Test]
+    public function aListItemKeepsTheAmountItsPriceHtmlPrinted(): void
+    {
+        $decoder = new PriceDecoder();
+
+        $this->assertSame(713.03, $decoder->decode(['priceHtml' => '<span data-price-amount="713.03">x</span>'])['html_amount']);
+        // A from-price line prints no amount
+        $this->assertNull($decoder->decode(['priceHtml' => 'vanaf 3,76 per m2'])['html_amount']);
+    }
+
+    #[Test]
     public function aFieldThatDoesNotDecodeIsKeptAsText(): void
     {
         $this->assertSame(['unparsed' => '{broken'], (new PriceDecoder())->parse('{broken'));

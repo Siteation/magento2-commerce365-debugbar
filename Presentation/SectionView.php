@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Siteation\Commerce365DebugBar\Presentation;
 
 use Siteation\Commerce365DebugBar\Collector\Commerce365Collector;
+use Siteation\Commerce365DebugBar\Model\BandDiff;
 use Siteation\DebugBar\Api\SectionViewInterface;
 
 /**
@@ -44,8 +45,8 @@ class SectionView implements SectionViewInterface
         if ($prices === null) {
             return ['id' => 'prices', 'label' => 'Prices', 'blocks' => [[
                 'type' => 'note',
-                'text' => 'No customer-price request in this profile. Prices load after the page, '
-                    . 'in their own request: open it from the request list.',
+                'text' => 'This request priced nothing itself. Prices load after the page, '
+                    . 'in the customer-price request.',
             ]]];
         }
 
@@ -59,9 +60,11 @@ class SectionView implements SectionViewInterface
             $rows[] = [
                 'product' => (string) $id,
                 'type' => (string) ($product['type'] ?? ''),
-                'final' => $this->number($product['final_price'] ?? null),
+                // A list item has no priceConfig, only the amount its price HTML printed
+                'final' => $this->number($product['final_price'] ?? $product['html_amount'] ?? null),
                 'old' => $this->number($product['old_price'] ?? null),
                 'tiers' => (string) count((array) ($product['tier_rows'] ?? [])),
+                'bc_price' => $this->number($bands[$id]['price'] ?? null),
                 'bc' => isset($bands[$id]) ? 'fetched' : 'cache',
                 'dropped' => $dropped === []
                     ? ''
@@ -103,6 +106,7 @@ class SectionView implements SectionViewInterface
                     ['key' => 'final', 'label' => 'Final', 'num' => true],
                     ['key' => 'old', 'label' => 'Old', 'num' => true],
                     ['key' => 'tiers', 'label' => 'Tiers', 'num' => true],
+                    ['key' => 'bc_price', 'label' => 'BC price', 'num' => true],
                     ['key' => 'bc', 'label' => 'Source'],
                     ['key' => 'dropped', 'label' => 'Dropped BC fields', 'mono' => true],
                 ],
@@ -236,21 +240,28 @@ class SectionView implements SectionViewInterface
 
     /**
      * @param array<string, mixed> $payload
-     * @return array<int, array{dropped: list<string>}>
+     * @return array<int, array{dropped: list<string>, price: float|int|null}>
      */
     private function bandsByProduct(array $payload): array
     {
         $out = [];
 
         foreach ((array) ($payload['raw'] ?? []) as $capture) {
+            $prices = [];
+
+            foreach ((array) ($capture['bands'] ?? []) as $product) {
+                $prices[(int) ($product['product_id'] ?? 0)] = BandDiff::basePrice((array) ($product['prices'] ?? []));
+            }
+
             foreach ((array) ($capture['diff']['products'] ?? []) as $product) {
+                $id = (int) ($product['product_id'] ?? 0);
                 $dropped = [];
 
                 foreach ((array) ($product['bands'] ?? []) as $band) {
                     array_push($dropped, ...(array) ($band['dropped'] ?? []));
                 }
 
-                $out[(int) ($product['product_id'] ?? 0)] = ['dropped' => array_values(array_unique($dropped))];
+                $out[$id] = ['dropped' => array_values(array_unique($dropped)), 'price' => $prices[$id] ?? null];
             }
         }
 

@@ -1,0 +1,9 @@
+{
+  "name": "siteation-commerce365-debugbar-js",
+  "private": true,
+  "type": "module",
+  "description": "Tests for the live half of the Commerce365 section. The scripts themselves need no build.",
+  "scripts": {
+    "test": "node --test test-js/*.test.js"
+  }
+}

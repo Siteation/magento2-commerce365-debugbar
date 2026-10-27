@@ -18,7 +18,7 @@ class SectionViewTest extends TestCase
         $this->assertSame(0, $view['count']);
         $this->assertSame(['prices', 'calls', 'config'], array_column($view['tabs'], 'id'));
         $this->assertSame('note', $view['tabs'][0]['blocks'][0]['type']);
-        $this->assertStringContainsString('request list', $view['tabs'][0]['blocks'][0]['text']);
+        $this->assertStringContainsString('customer-price request', $view['tabs'][0]['blocks'][0]['text']);
     }
 
     #[Test]
@@ -42,7 +42,7 @@ class SectionViewTest extends TestCase
                     ],
                 ],
                 'raw' => [[
-                    'bands' => [],
+                    'bands' => [['product_id' => 6, 'prices' => [['minimumQuantity' => 1, 'price' => 4.5]]]],
                     'diff' => ['products' => [['product_id' => 6, 'bands' => [['used' => ['price'], 'dropped' => ['campaign']]]]]],
                 ]],
                 'context' => ['customer_id' => 12, 'parent_customer_id' => 10, 'config' => ['use_special_price' => true]],
@@ -56,6 +56,8 @@ class SectionViewTest extends TestCase
         $this->assertSame('cache', $table['rows'][0]['bc']);
         $this->assertSame('', $table['rows'][0]['dropped']);
         $this->assertSame('fetched', $table['rows'][1]['bc']);
+        $this->assertSame('4.5', $table['rows'][1]['bc_price']);
+        $this->assertSame('', $table['rows'][0]['bc_price']);
         $this->assertSame(['text' => 'campaign', 'tone' => 'warn'], $table['rows'][1]['dropped']);
         $this->assertSame('6', $table['rows'][1]['_target']);
 

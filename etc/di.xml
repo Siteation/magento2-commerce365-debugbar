@@ -24,7 +24,38 @@
                     <item name="lead" xsi:type="string" translate="true">What the page was priced with, and what Business Central was asked.</item>
                     <item name="graded" xsi:type="boolean">true</item>
                     <item name="view" xsi:type="object">Siteation\Commerce365DebugBar\Presentation\SectionView</item>
+                    <item name="scripts" xsi:type="array">
+                        <!-- Before the theme's scripts, so the first price events are caught -->
+                        <item name="head" xsi:type="array">
+                            <item name="events" xsi:type="string">Siteation_Commerce365DebugBar::js/events.js</item>
+                        </item>
+                        <item name="body" xsi:type="array">
+                            <item name="reader" xsi:type="string">Siteation_Commerce365DebugBar::js/section.js</item>
+                        </item>
+                    </item>
                 </item>
+            </argument>
+        </arguments>
+    </type>
+
+    <type name="Siteation\DebugBar\Analysis\ProfileAnalyzer">
+        <arguments>
+            <argument name="rules" xsi:type="array">
+                <item name="c365_call_failed" xsi:type="object">Siteation\Commerce365DebugBar\Analysis\Rule\CallFailedRule</item>
+                <item name="c365_call_in_page_render" xsi:type="object">Siteation\Commerce365DebugBar\Analysis\Rule\CallInPageRenderRule</item>
+                <item name="c365_call_slow" xsi:type="object">Siteation\Commerce365DebugBar\Analysis\Rule\SlowCallRule</item>
+                <item name="c365_cache_miss_rate" xsi:type="object">Siteation\Commerce365DebugBar\Analysis\Rule\CacheMissRule</item>
+                <item name="c365_guest_on_priced_page" xsi:type="object">Siteation\Commerce365DebugBar\Analysis\Rule\GuestPricedPageRule</item>
+                <item name="c365_dropped_fields" xsi:type="object">Siteation\Commerce365DebugBar\Analysis\Rule\DroppedFieldsRule</item>
+            </argument>
+        </arguments>
+    </type>
+
+    <type name="Siteation\DebugBar\Mcp\Server">
+        <arguments>
+            <argument name="tools" xsi:type="array">
+                <item name="get_c365_calls" xsi:type="object">Siteation\Commerce365DebugBar\Mcp\Tool\GetCalls</item>
+                <item name="get_c365_prices" xsi:type="object">Siteation\Commerce365DebugBar\Mcp\Tool\GetPrices</item>
             </argument>
         </arguments>
     </type>

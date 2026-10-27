@@ -44,6 +44,7 @@ class PriceDecoder
             'has_tier_price_html' => $this->has($entry['tierPriceHtml'] ?? null),
             'has_uom_in_html' => is_string($entry['priceHtml'] ?? null)
                 && str_contains($entry['priceHtml'], 'commerce365-price-per-uom'),
+            'html_amount' => $this->htmlAmount($entry['priceHtml'] ?? null),
         ];
     }
 
@@ -82,6 +83,19 @@ class PriceDecoder
         }
 
         return is_int($price) || is_float($price) ? $price : (is_numeric($price) ? (float) $price : null);
+    }
+
+    /**
+     * The first amount Magento printed in the price HTML. A list item carries no priceConfig,
+     * so this is the only number it has; a from-price line ("vanaf") carries none at all.
+     */
+    private function htmlAmount(mixed $html): ?float
+    {
+        if (!is_string($html) || preg_match('/data-price-amount="([0-9.]+)"/', $html, $match) !== 1) {
+            return null;
+        }
+
+        return (float) $match[1];
     }
 
     private function has(mixed $value): bool

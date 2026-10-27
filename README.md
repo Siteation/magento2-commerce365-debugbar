@@ -33,6 +33,45 @@ One collector, `c365`, the same id as the section, so the debugbar's Sections se
 Auth, `headers`, `appId`, `secretKey` and OAuth tokens are never recorded. Raw bands keep their values
 only under the `full` value policy; otherwise they keep keys and types.
 
+## On the page
+
+The section has six tabs. Prices, Calls and Config come from the stored profile. On a page profile,
+which holds no prices because they load afterwards, the page script finds the newest customer-price
+request in the bar's request list, loads its profile and shows its tabs, so you stay on the page.
+
+| Tab | Source | Shows |
+| --- | --- | --- |
+| Prices | stored | Per product: final (or the amount the list HTML printed), old, tiers, BC price, cache or BC, dropped BC fields; raw bands |
+| Calls | stored | Every Hub and BC call with status, ms and bytes; bodies below |
+| Config | stored | Customer, the B2B parent whose prices apply, the Commerce365 price settings |
+| Coverage | live | Per product: price boxes on the page and their state, asked for, answered, shown |
+| Events | live | `commerce365:prices-updated` and quantity or unit changes, newest first |
+| Page | live | PDP or list, whether customer prices are on, every price box; hover a row to outline it |
+
+The live half reads what `Nebula_Commerce365Compat` (NFT) puts on the page: `[data-role=priceBox][data-product-id]`
+with `data-commerce365-price`, the `commerce365` key of `#nft-globals`, and the `commerce365:prices-updated` event.
+
+## Findings
+
+| Severity | Id | When |
+| --- | --- | --- |
+| error | `c365.call_failed` | A Hub or BC call got no 2xx answer, which Commerce365 otherwise hides |
+| error | `c365.call_in_page_render` | Commerce365 called out while a storefront page rendered |
+| warning | `c365.call_slow` | A call over the threshold (1000 ms, `slowCallMs` on the collector) |
+| warning | `c365.cache_miss_rate` | 50% or more of 10 or more products missed the price cache |
+| info | `c365.guest_on_priced_page` | Logged out on a category, product or search page |
+| info | `c365.dropped_fields` | BC sent band fields the storefront never reads |
+
+Thresholds are constructor arguments, so a project changes them in its own di.xml.
+
+## MCP
+
+Two tools on the debugbar's MCP server, no extra registration:
+
+- `get_c365_calls` (`profile_id`, `bodies`): the calls of a request. Without an id, the newest request that made one.
+- `get_c365_prices` (`profile_id`, `product_id`): decoded prices, BC bands, dropped fields, customer, settings,
+  cache. Without an id, the newest customer-price request.
+
 ## Develop
 
 The unit tests borrow a shop's `vendor/` (Commerce365 is not on a public mirror) and a debugbar checkout:
@@ -42,4 +81,5 @@ C365_HOST=~/Developer/your-shop C365_DEBUGBAR=~/Developer/magento2-debugbar \
   php ~/Developer/your-shop/vendor/bin/phpunit
 php ~/Developer/your-shop/vendor/bin/phpstan analyse -c phpstan.neon.dist --autoload-file dev/bootstrap.php
 php ~/Developer/your-shop/vendor/bin/phpcs --standard=phpcs.xml.dist .
+npm test   # node --test, the live half
 ```

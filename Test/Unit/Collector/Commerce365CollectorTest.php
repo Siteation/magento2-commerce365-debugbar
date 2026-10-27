@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Siteation\Commerce365DebugBar\Test\Unit\Collector;
 
+use Magento\Framework\App\Http\Context as HttpContext;
+use Magento\Framework\App\ResponseInterface;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Siteation\Commerce365DebugBar\Collector\Commerce365Collector;
@@ -139,6 +141,18 @@ class Commerce365CollectorTest extends TestCase
     }
 
     #[Test]
+    public function theEndOfTheRequestRecordsWhetherACustomerWasSignedIn(): void
+    {
+        $context = $this->createStub(HttpContext::class);
+        $context->method('getValue')->willReturn(false);
+        $collector = $this->collector(httpContext: $context);
+
+        $this->assertNull($collector->payload()['logged_in']);
+        $collector->finalize($this->createStub(ResponseInterface::class));
+        $this->assertFalse($collector->payload()['logged_in']);
+    }
+
+    #[Test]
     public function resetForgetsTheLastRequest(): void
     {
         $collector = $this->collector();
@@ -155,7 +169,11 @@ class Commerce365CollectorTest extends TestCase
         $this->assertSame(0, $collector->summary()['cache_requested']);
     }
 
-    private function collector(string $policy = Redactor::POLICY_FULL, float $slowCallMs = 1000.0): Commerce365Collector
+    private function collector(
+        string $policy = Redactor::POLICY_FULL,
+        float $slowCallMs = 1000.0,
+        ?HttpContext $httpContext = null
+    ): Commerce365Collector
     {
         $config = $this->createStub(Config::class);
         $config->method('valuePolicy')->willReturn($policy);
@@ -166,6 +184,7 @@ class Commerce365CollectorTest extends TestCase
             $config,
             new PriceDecoder(),
             new BandDiff(),
+            $httpContext ?? $this->createStub(HttpContext::class),
             $slowCallMs
         );
     }

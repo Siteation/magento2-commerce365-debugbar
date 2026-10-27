@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Siteation\Commerce365DebugBar\Collector;
 
+use Magento\Framework\App\Http\Context as HttpContext;
+use Magento\Framework\App\ResponseInterface;
 use Siteation\Commerce365DebugBar\Model\BandDiff;
 use Siteation\Commerce365DebugBar\Model\PriceDecoder;
 use Siteation\DebugBar\Collector\AbstractCollector;
@@ -41,6 +43,8 @@ class Commerce365Collector extends AbstractCollector
     /** @var array<string, mixed> */
     private array $context = [];
 
+    private ?bool $loggedIn = null;
+
     private int $failed = 0;
 
     private int $slow = 0;
@@ -53,6 +57,7 @@ class Commerce365Collector extends AbstractCollector
         private readonly Config $config,
         private readonly PriceDecoder $decoder,
         private readonly BandDiff $bandDiff,
+        private readonly HttpContext $httpContext,
         private readonly float $slowCallMs = 1000.0,
         int $maxItems = 200
     ) {
@@ -72,6 +77,7 @@ class Commerce365Collector extends AbstractCollector
         $this->cache = ['requested' => [], 'missed' => [], 'lookups' => 0];
         $this->raw = [];
         $this->context = [];
+        $this->loggedIn = null;
         $this->failed = 0;
         $this->slow = 0;
         $this->callMs = 0.0;
@@ -257,7 +263,18 @@ class Commerce365Collector extends AbstractCollector
             'cache' => $this->cache,
             'raw' => $this->raw,
             'context' => $this->context,
+            'logged_in' => $this->loggedIn,
         ];
+    }
+
+    /**
+     * Whether a customer was signed in, as the full page cache varies on it. Read from the
+     * HTTP context rather than the session, so a cached page that never started a session
+     * does not start one here.
+     */
+    public function finalize(ResponseInterface $response): void
+    {
+        $this->loggedIn = (bool) $this->httpContext->getValue('customer_logged_in');
     }
 
     protected function track(array $item): void
