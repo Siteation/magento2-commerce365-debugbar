@@ -45,7 +45,7 @@ class RequestPlugin
         try {
             $result = $proceed(...$arguments);
         } catch (Throwable $thrown) {
-            $this->record($subject, $arguments, $startMs, $startedAt, null, $thrown->getMessage());
+            $this->record($subject, $arguments, $startMs, $startedAt, null, $thrown);
 
             throw $thrown;
         }
@@ -64,7 +64,7 @@ class RequestPlugin
         float $startMs,
         float $startedAt,
         mixed $result,
-        ?string $error
+        ?Throwable $failure
     ): void {
         $durationMs = (microtime(true) - $startedAt) * 1000;
 
@@ -74,7 +74,7 @@ class RequestPlugin
             $startMs,
             $durationMs,
             $result,
-            $error
+            $failure
         ): void {
             $isGet = $subject instanceof Get;
             $sent = $arguments[1] ?? [];
@@ -89,7 +89,7 @@ class RequestPlugin
                 // are transport settings, and auth among them.
                 is_array($sent) ? ($isGet ? $sent : (array) ($sent['json'] ?? [])) : [],
                 $result,
-                $error
+                $failure
             );
         });
     }
