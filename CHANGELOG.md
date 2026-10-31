@@ -30,7 +30,5 @@ The first release.
 
 - Requires Siteation_DebugBar 1.5.1 or newer, so a shop cannot stay on a version with the 1.4.1 advisories, and
   this add-on's MCP results carry the recorded data note.
-  ([#2](https://github.com/Siteation/magento2-commerce365-debugbar/issues/2))
 - A failed call's exception message is kept under the `full` value policy only, and a call result that is not
   an array is held to the policy like every other body.
-  ([#1](https://github.com/Siteation/magento2-commerce365-debugbar/issues/1))
