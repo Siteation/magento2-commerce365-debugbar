@@ -4,7 +4,8 @@ Adds a **Commerce365** section to [Siteation_DebugBar](https://github.com/Siteat
 the customer prices a request answered, every Hub and Business Central call, the price cache, and the
 raw BC price bands with the fields the storefront drops.
 
-Needs Siteation_DebugBar 1.4.0 or newer, the first release with the section API.
+Needs Siteation_DebugBar 1.5.1 or newer. 1.4.0 brought the section API, 1.5.0 fixed two security
+issues in the bar itself, and 1.5.1 labels this add-on's MCP results as recorded data.
 Hyvä first. Luma is untested.
 
 ## Install
