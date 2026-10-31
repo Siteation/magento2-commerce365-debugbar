@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-[Unreleased]: https://github.com/Siteation/magento2-commerce365-debugbar/compare/1.0.0...main
+[Unreleased]: https://github.com/Siteation/magento2-commerce365-debugbar/compare/1.0.1...main
+
+## [1.0.1] - 2026-10-31
+
+[1.0.1]: https://github.com/Siteation/magento2-commerce365-debugbar/compare/1.0.0...1.0.1
+
+### Changed
+
+- Licensed under MIT, with a LICENSE file. 1.0.0 was published as proprietary.
 
 ## [1.0.0] - 2026-10-31
 
