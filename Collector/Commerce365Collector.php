@@ -13,6 +13,7 @@ use Siteation\DebugBar\Collector\AbstractCollector;
 use Siteation\DebugBar\Model\Clock;
 use Siteation\DebugBar\Model\Config;
 use Siteation\DebugBar\Model\Redactor;
+use Throwable;
 
 /**
  * Everything Commerce365 did during one request: its Hub and Business Central calls, the
@@ -128,6 +129,7 @@ class Commerce365Collector extends AbstractCollector
      * @param string $endpoint the Hub method or BC function, never the full URL with credentials
      * @param array<array-key, mixed> $request what was sent, without auth or headers
      * @param mixed $result what Commerce365 got back, already decoded
+     * @param Throwable|null $failure what the call threw, if it did
      */
     public function recordCall(
         string $transport,
@@ -137,7 +139,7 @@ class Commerce365Collector extends AbstractCollector
         float $durationMs,
         array $request,
         mixed $result,
-        ?string $error = null
+        ?Throwable $failure = null
     ): void {
         $status = $this->response['status'] ?? null;
         $bytes = $this->response['bytes'] ?? null;
@@ -145,7 +147,7 @@ class Commerce365Collector extends AbstractCollector
 
         // No status means the request never got an answer: no client configured, a
         // connection error, or an exception Commerce365 logged and swallowed.
-        $ok = $error === null && $status !== null && $status >= 200 && $status < 300;
+        $ok = $failure === null && $status !== null && $status >= 200 && $status < 300;
         $policy = $this->config->valuePolicy();
 
         if ($this->origin === self::ORIGIN_PRELOAD) {
@@ -160,7 +162,7 @@ class Commerce365Collector extends AbstractCollector
         if ($index < $this->maxItems) {
             $this->bodies[$index] = [
                 'request' => $this->bodyRedactor->cleanValues($this->withoutCredentials($request), $policy),
-                'response' => is_array($result) ? $this->bodyRedactor->cleanValues($result, $policy) : $result,
+                'response' => $this->body($result, $policy),
             ];
         }
 
@@ -171,7 +173,7 @@ class Commerce365Collector extends AbstractCollector
             'endpoint' => $endpoint,
             'status' => $status,
             'ok' => $ok,
-            'error' => $error,
+            'error' => $this->error($failure, $policy),
             'bytes' => $bytes,
             'start_ms' => round($startMs, 3),
             'at_ms' => round($startMs + $durationMs, 3),
@@ -441,6 +443,38 @@ class Commerce365Collector extends AbstractCollector
         }
 
         return $out;
+    }
+
+    /**
+     * What a call answered, under the same policy as everything else. Commerce365's request
+     * services all return an array today; anything else is held to the policy all the same
+     * rather than stored as it came.
+     */
+    private function body(mixed $result, string $policy): mixed
+    {
+        if (is_array($result)) {
+            return $this->bodyRedactor->cleanValues($result, $policy);
+        }
+
+        return match ($policy) {
+            Redactor::POLICY_NONE => null,
+            Redactor::POLICY_MASKED => get_debug_type($result),
+            default => $this->bodyRedactor->clean($result),
+        };
+    }
+
+    /**
+     * The message only under full, as the debugbar treats an exception's message. A Guzzle
+     * connect error names the whole request URL, query string and all, and the class alone
+     * still says whether the Hub was unreachable or the call itself went wrong.
+     */
+    private function error(?Throwable $failure, string $policy): ?string
+    {
+        if ($failure === null) {
+            return null;
+        }
+
+        return $policy === Redactor::POLICY_FULL ? $failure->getMessage() : $failure::class;
     }
 
     /**

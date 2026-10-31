@@ -222,6 +222,40 @@ class Commerce365CollectorTest extends TestCase
         $this->assertSame(0, $collector->summary()['cache_requested']);
     }
 
+    #[Test]
+    public function aFailedCallKeepsItsMessageOnlyUnderFull(): void
+    {
+        $failure = new \RuntimeException('cURL error 6 for https://hub.example/api/customer?customerNo=C0042');
+
+        foreach ([
+            Redactor::POLICY_FULL => $failure->getMessage(),
+            Redactor::POLICY_MASKED => \RuntimeException::class,
+            Redactor::POLICY_NONE => \RuntimeException::class,
+        ] as $policy => $expected) {
+            $collector = $this->collector($policy);
+            $collector->recordCall('hub', 'GET', 'customer', 0.0, 1.0, [], null, $failure);
+
+            $call = $collector->payload()['items'][0];
+            $this->assertSame($expected, $call['error'], $policy);
+            $this->assertFalse($call['ok'], $policy);
+        }
+    }
+
+    #[Test]
+    public function aResponseThatIsNotAnArrayFollowsThePolicy(): void
+    {
+        foreach ([
+            Redactor::POLICY_FULL => 'raw body',
+            Redactor::POLICY_MASKED => 'string',
+            Redactor::POLICY_NONE => null,
+        ] as $policy => $expected) {
+            $collector = $this->collector($policy);
+            $collector->recordCall('hub', 'POST', 'price', 0.0, 1.0, [], 'raw body');
+
+            $this->assertSame($expected, $collector->payload()['bodies'][0]['response'], $policy);
+        }
+    }
+
     private function collector(
         string $policy = Redactor::POLICY_FULL,
         float $slowCallMs = 1000.0,
