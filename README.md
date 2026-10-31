@@ -1,5 +1,9 @@
 # Siteation_Commerce365DebugBar
 
+[![Packagist Version](https://img.shields.io/packagist/v/siteation/magento2-commerce365-debugbar?style=for-the-badge)](https://packagist.org/packages/siteation/magento2-commerce365-debugbar)
+![Supported PHP Versions](https://img.shields.io/badge/php-%208.2_|_8.3_|_8.4_|_8.5-8892bf.svg?logo=php&logoColor=white&longCache=true&style=for-the-badge)
+![License](https://img.shields.io/github/license/Siteation/magento2-commerce365-debugbar?color=%23234&style=for-the-badge)
+
 Adds a **Commerce365** section to [Siteation_DebugBar](https://github.com/Siteation/magento2-debugbar):
 the customer prices a request answered, every Hub and Business Central call, the price cache, and the
 raw BC price bands with the fields the storefront drops.
@@ -10,11 +14,24 @@ Hyvä first. Luma is untested.
 
 ## Install
 
+From [Packagist](https://packagist.org/packages/siteation/magento2-commerce365-debugbar), on a store
+that runs Commerce365:
+
 ```sh
 composer require --dev siteation/magento2-commerce365-debugbar
-bin/magento module:enable Siteation_Commerce365DebugBar
+bin/magento module:enable Siteation_DebugBar Siteation_Commerce365DebugBar
 bin/magento setup:upgrade
 ```
+
+Composer brings in Siteation_DebugBar 1.5.1 or newer if the store does not have it yet. The
+Commerce365 modules it plugs into (`commerce365/module-core` and `commerce365/module-customer-price`,
+2.x) are expected to be installed already. `--dev` on purpose: this is a development tool, and a
+production build should not carry its plugins.
+
+Turn the bar on as described in the
+[Siteation_DebugBar install steps](https://github.com/Siteation/magento2-debugbar#install). The
+Commerce365 section then appears on its own, and can be switched off under **Sections** like any
+other.
 
 Remove `Siteation_Commerce365Debug` (the old bridge) at the same time, so the two do not both plug
 into the price request.
@@ -76,7 +93,8 @@ Two tools on the debugbar's MCP server, no extra registration:
 
 ## Develop
 
-The unit tests borrow a shop's `vendor/` (Commerce365 is not on a public mirror) and a debugbar checkout:
+The unit tests borrow a Commerce365 shop's `vendor/` for Magento and the Commerce365 modules, and a
+debugbar checkout:
 
 ```sh
 C365_HOST=~/Developer/your-shop C365_DEBUGBAR=~/Developer/magento2-debugbar \
