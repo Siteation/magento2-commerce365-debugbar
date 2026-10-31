@@ -85,3 +85,7 @@ php ~/Developer/your-shop/vendor/bin/phpstan analyse -c phpstan.neon.dist --auto
 php ~/Developer/your-shop/vendor/bin/phpcs --standard=phpcs.xml.dist .
 npm test   # node --test, the live half
 ```
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).

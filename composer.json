@@ -1,6 +1,6 @@
 {
     "name": "siteation/magento2-commerce365-debugbar",
-    "license": "proprietary",
+    "license": "MIT",
     "type": "magento2-module",
     "description": "Commerce365 section for Siteation_DebugBar: customer prices, Hub and Business Central calls, and findings",
     "keywords": [
